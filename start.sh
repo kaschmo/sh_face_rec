@@ -1,0 +1,1 @@
+gunicorn --bind 192.168.1.25:5001 sh_face_rec.startserver:app

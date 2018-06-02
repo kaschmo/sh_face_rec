@@ -1,0 +1,56 @@
+import java.net.URLEncoder
+import java.util.List
+
+//----------Presece Face Detection
+rule "MotionTriggerFaceRec"
+when
+	Item motion_binary changed to ON or
+	Item TriggerDetection changed
+then
+	logInfo("Presence Detection","Motion Detected. Trigger Face Rec: ")
+	var face_server_api = "http://XXXX:5001/detectFrom"
+	var face_json = '{'
+	face_json += '"URL": "http://user:pwd@X.X.X.X/video.cgi?.mjpg",'
+	face_json += '"Time": "10"'
+	face_json += '}'
+	
+	logInfo("Presence Detection", "Posting: " + face_server_api + ": " + face_json)
+	sendHttpPostRequest(face_server_api, "application/json", face_json)
+
+end
+
+rule "UnknownPresence"
+when
+	Item presenceVideo_unknowns received update or
+	Item GetUnknowns changed 
+then
+	
+	var Number num_unknowns = presenceVideo_unknowns.state as Number
+	if (num_unknowns != null && num_unknowns > 0) {
+		logInfo("Presence Detection","Unknowns Detected: " + num_unknowns.toString() + " faces")
+		val String outputFolder="/opt/openhab2/userdata/tmp/"
+		var List<String> attachmentURLList = newArrayList()
+		var face_server_api = "http://X.X.X.X:5001/getUnknownFace/"
+		var unk = 0
+		while (unk < num_unknowns) {
+			var String outputFile=outputFolder+"face_"+ unk + ".jpg"
+			var String faceURL = face_server_api + unk
+			logInfo("PresenceDetection","Getting: " + faceURL + " to: " + outputFile)
+			var cmd="curl -m 10 -o " + outputFile + " " + faceURL
+			executeCommandLine(cmd)
+			//change owner to pi for access
+			executeCommandLine("chown pi " + outputFile)
+			//add to URL list
+			attachmentURLList.add("file://"+ outputFile)
+			//logInfo("SendMail","Attached file: " + outputFile)
+			unk=unk+1
+		}
+		var alert_mail_address = "xxx"
+		var String StatusText = "Unknowns detected at Home"
+		sendMail(alert_mail_address, "Home: Unknown Alert", StatusText, attachmentURLList)
+
+
+	}
+	
+	
+end

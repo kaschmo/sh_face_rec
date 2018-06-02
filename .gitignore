@@ -1,0 +1,12 @@
+*.pyc
+tmp/
+downloads/
+.vscode/
+models/
+training_data/
+testing_data/
+sh_face_rec/config.ini
+
+
+
+

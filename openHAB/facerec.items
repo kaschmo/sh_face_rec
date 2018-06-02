@@ -1,0 +1,8 @@
+//Presence Detection Test. In group Presence to trigger presence
+Switch presenceVideo_name1 "Presence Video Name1 [%s]" (gPresence)
+Switch presenceVideo_name2 "Presence Video Name2 [%s]" (gPresence)
+  			
+Switch GetUnknowns "Get Unknowns"
+Switch TriggerDetection "Trigger Detection"
+
+Number presenceVideo_unknowns "Unknowns [%d]"

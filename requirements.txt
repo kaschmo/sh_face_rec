@@ -1,0 +1,11 @@
+tensorflow==1.7
+scipy
+sklearn
+pickle
+dlib
+cv2
+requests
+flask
+threading
+Queue
+multiprocessing
