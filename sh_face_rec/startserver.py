@@ -213,7 +213,6 @@ def returnImg(BGRimg):
 if __name__ == "__main__":
     #frameWorker.start(pipeline) #needs to be started before flask. since flask captures main process
     print("Starting from main in startserver.py")
-    #app.run(host='192.168.1.25', port=5001, debug=False)
     app.run(host=cf['IP'], port=cf.getint('PORT'), debug=False)
 
 

@@ -14,7 +14,7 @@ class DetectorTest(unittest.TestCase):
         config.read('sh_face_rec/config.ini')
         cf = config['TEST']
         img_path=cf["TEST_IMG_PATH"]
-        testimg = "IMG_1486.jpg"
+        testimg = "blog1.png"
         FR = FaceRecognizer()
         FV = FrameViewer()
         
