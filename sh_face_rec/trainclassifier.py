@@ -35,7 +35,7 @@ train_dir = cf["TRAINING_PATH"]
 
 cf = config['FACERECOGNIZER']
 model_dir = cf['MODEL_PATH']
-model_name = "180531_knn_model_test"
+model_name = "180628_knn_model_py3"
 n_neighbors=3
 knn_algo='ball_tree'
 fileConfig('sh_face_rec/logging.conf')

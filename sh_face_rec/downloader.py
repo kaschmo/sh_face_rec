@@ -3,8 +3,14 @@
 
 import time
 import cv2
+import sys
+if sys.version_info >= (3, 0):
+    #from queue import Queue
+    import multiprocessing
+    from multiprocessing import Process, Queue
+else:
+    from Queue import Queue
 from threading import Thread
-from Queue import Queue
 import logging
 from logging.config import fileConfig
 import numpy as np
