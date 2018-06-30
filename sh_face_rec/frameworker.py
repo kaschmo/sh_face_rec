@@ -6,10 +6,22 @@
 import sys
 import time
 import dlib
-if sys.version_info >= (3, 0):
+import sys
+import configparser
+config = configparser.ConfigParser()
+config.read('sh_face_rec/config.ini')
+cf = config['FRAMEWORKER']
+if cf.getboolean('MULTIPROC'):
+    import multiprocessing
     from multiprocessing import Process, Queue
+
 else:
     from threading import Thread
+    if sys.version_info >= (3, 0):
+        from queue import Queue
+    else:
+        from Queue import Queue
+
 
 from facerecognizer import FaceRecognizer
 from frame import Frame
@@ -37,12 +49,16 @@ class FrameWorker:
 
     def start(self, pipe):
         self.pipeline = pipe
-        if sys.version_info >= (3, 0):
+        if cf.getboolean('MULTIPROC'):
+            self.logger.info("Setting up Sub-Process for streaming")
+
             self.process = Process(target=self.work)
             self.process.daemon = True
             self.process.start()
         else: 
             #create new Thread
+            self.logger.info("Setting up Thread for streaming")
+
             self.thread = Thread(target=self.work)
             self.thread.daemon = True
             self.thread.start()

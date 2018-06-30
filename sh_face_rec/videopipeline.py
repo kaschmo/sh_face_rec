@@ -4,23 +4,27 @@
 import cv2
 import time
 import sys
-from threading import Thread
-if sys.version_info >= (3, 0):
-    #from queue import Queue
+import configparser
+config = configparser.ConfigParser()
+config.read('sh_face_rec/config.ini')
+cf = config['VIDEOPIPELINE']
+if cf.getboolean('MULTIPROC'):
     import multiprocessing
     from multiprocessing import Process, Queue
 
 else:
-    from Queue import Queue
+    from threading import Thread
+    if sys.version_info >= (3, 0):
+        from queue import Queue
+    else:
+        from Queue import Queue
 
 from frame import Frame
 import logging
 from logging.config import fileConfig
-import configparser
 
-config = configparser.ConfigParser()
-config.read('sh_face_rec/config.ini')
-cf = config['VIDEOPIPELINE']
+
+
 
 
 class VideoPipeline:
@@ -61,13 +65,15 @@ class VideoPipeline:
             self.videoCapture = cv2.VideoCapture(stringURL)        
         self.startTime = time.time()
 
-        if sys.version_info >= (3, 0):
+        if cf.getboolean('MULTIPROC'):
             #for multiprocessing
             #multiprocessing.set_start_method('spawn') #not working
+            self.logger.info("Setting up Sub-Process for streaming")
             self.process = Process(target=self.streamToBuffer)
             self.process.daemon = True
             self.process.start()
         else:
+            self.logger.info("Setting up Thread for streaming")
             # start a thread to capture the stream
             self.thread = Thread(target=self.streamToBuffer)
             self.thread.daemon = True
@@ -76,6 +82,7 @@ class VideoPipeline:
         
     def streamToBuffer(self):
         #does the frame capturing.
+        self.logger.info("Self Test: %d, %d",self.startTime, self.isStreaming)
         sessionFrameCounter = 0
         while (time.time()-self.startTime < self.streamTime and self.isStreaming):
             
@@ -84,10 +91,10 @@ class VideoPipeline:
             if ret:
                 #check again if isStreaming, since during waiting for frame from Cam, flush could have happend.
                 #need to avoid that after flush, new frame is put on queue. otherwise new working session will start
-                #self.logger.info("Checking buffer: %d.",self.bufferSize)
+                self.logger.info("Checking buffer: %d.",self.bufferSize)
                 if self.isStreaming and self.Q.qsize()<self.bufferSize:
                     self.Q.put(Frame(frame))
-                    #self.logger.info("Put on Queue: Length: %d",self.Q.qsize())
+                    self.logger.info("Put on Queue: Length: %d",self.Q.qsize())
                     #print("Put on Queue. Length {}.".format(self.Q.qsize()))
                     sessionFrameCounter += 1
             else:
