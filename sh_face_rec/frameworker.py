@@ -13,7 +13,7 @@ config.read('sh_face_rec/config.ini')
 cf = config['FRAMEWORKER']
 if cf.getboolean('MULTIPROC'):
     import multiprocessing
-    from multiprocessing import Process, Queue, Value
+    from multiprocessing import Process, Queue, Value, Manager
 
 else:
     from threading import Thread
@@ -47,98 +47,93 @@ class FrameWorker:
 
 
         #mutliproc
-        self.knownFaceList = Queue()
-        self.unknownFaceList = Queue()
-        self.workingFPS = Value('d', 0.0)
-        self.lastFrame = Queue() #easiest to set as queue. but need getter/setter function because it can never be >1 entry
-        self.idle = Value('i',1)
-        self.presence = Value('i',1)
+        self.manager = multiprocessing.Manager()
+        self.globalns = self.manager.Namespace()
+        self.knownFaceList = self.manager.list()
+        self.unknownFaceList = self.manager.list()
+        self.globalns.workingFPS = 0
+        self.globalns.lastFrame = None
+        self.globalns.idle = True
+        self.globalns.presence = False
+        self.globalns.processedFrames = 0
 
     #----------getter/setter API-----------
-    def getQLength(self, q):
-        mycopy = []
-        while not q.empty:            
-            elem = q.get(block=False)            
-            mycopy.append(elem)
+    def getIdle(self):
+        return self.globalns.idle
 
-        for elem in mycopy:
-            q.put(elem)
-        return len(mycopy)
+    def getFPS(self):
+        return self.globalns.workingFPS
 
-    def getQElement(self, q, el):
-        mycopy = []
-        while not q.empty:
-            elem = q.get(block=False)
-            mycopy.append(elem)
-        for elem in mycopy:
-            q.put(elem)
-        return mycopy[el]
+    def getProcessedFrames(self):
+        return self.globalns.processedFrames
 
     def getKnownFromList(self, index):
-        if not self.knownFaceList.empty():
+        if len(self.knownFaceList)>0:
             #return self.knownFaceList.queue[index]
-            return self.getQElement(self.knownFaceList,index)
+            #return self.getQElement(self.knownFaceList,index)
+            return self.knownFaceList[index]
         else:
             #TODO Execption
             return None
 
     def getLastKnown(self):
-        return self.getKnownFromList(self.getQLength(self.knownFaceList)-1)
+        #return self.getKnownFromList(self.getQLength(self.knownFaceList)-1)
+        return self.getKnownFromList(len(self.knownFaceList)-1)
+
 
     def getUnknownFromList(self, index):
-        if not self.unknownFaceList.empty():
+        if len(self.unknownFaceList)>0:
             #return self.unknownFaceList.queue[index]
-            return self.getQElement(self.unknownFaceList,index)
+            #return self.getQElement(self.unknownFaceList,index)
+            return self.unknownFaceList[index]
         else:
             #TODO Execption
             return None
 
     def getLastUnknown(self):
         #return self.getUnknownFromList(len(self.unknownFaceList.queue)-1)
-        return self.getUnknownFromList(self.getQLength(self.unknownFaceList)-1)
+        return self.getUnknownFromList(len(self.unknownFaceList)-1)
     
     def getKnownCount(self):
         #direct access to deque in Queue - not process save!
         #return len(self.knownFaceList.queue)
-        return self.getQLength(self.knownFaceList)
+        return len(self.knownFaceList)
 
     def getUnknownCount(self):
         #direct access to deque in Queue - not process save!
         #return len(self.unknownFaceList.queue)
-        return self.getQLength(self.unknownFaceList)
+        return len(self.unknownFaceList)
 
-
-    def setLastFrame(self,lf,frame):
-        if not lf.empty():
-            #emptyQueue
-            lf.get()
-        lf.put(frame)
 
     def getLastFrame(self):
         #assume that this is only called from master process. otherwise I need to always set self.lastFrame in Child processes too
-        if not self.lastFrame.empty():
-            lastframe=self.lastFrame.get()
-            self.lastFrame.put(lastframe)
-            return lastframe
+        #if not self.lastFrame.empty():
+        #    lastframe=self.lastFrame.get()
+        #    self.lastFrame.put(lastframe)
+        #    return lastframe
+        #else:
+        #    self.logger.error("Not implemented")
+        if not self.globalns.lastFrame == None:
+            return self.globalns.lastFrame
         else:
-            self.logger.error("Not implemented")
+            self.logger.error("Not implemented")       
     
-    def emptyQueue(self, q):
-        while not q.empty():
-            q.get()
+    
 
     def alertUnknown(self):
         if self.getUnknownCount()> 0:
             self.OHInterface.unknownAlert(self.getUnknownCount())
 
+    
+
     #----------Start and Process Mgmt---------
-    def startNewSession(self,kfl,ufl,presence):
+    def startNewSession(self,kfl,ufl,ns):
         #reset/delete all lists of known and unknoen faces.
         self.logger.info("Resetting Session")
-    
-        self.emptyQueue(kfl)
-        self.emptyQueue(ufl)        
-        presence.value = 0
+        kfl=[]
+        ufl=[]
+          
+        ns.presence = False
 
     def start(self, pipe):
         self.pipeline = pipe
@@ -147,7 +142,7 @@ class FrameWorker:
 
             self.logger.info("Setting up Sub-Process for streaming")
 
-            self.process = Process(target=self.work, args=(pipe.Q, self.lastFrame, self.knownFaceList, self.unknownFaceList, self.idle, self.presence, self.workingFPS))
+            self.process = Process(target=self.work, args=(pipe.Q, self.globalns, self.knownFaceList, self.unknownFaceList))
             self.process.daemon = True
             self.process.start()
         else: 
@@ -160,7 +155,7 @@ class FrameWorker:
         self.logger.info("FrameWorker started.")
         
         
-    def work(self, frameQ, lastFrame, kfl, ufl, idle,presence,fps):
+    def work(self, frameQ, ns, kfl, ufl):
         from facerecognizer import FaceRecognizer
 
         #called in separate Thread to work on pipeline
@@ -174,36 +169,37 @@ class FrameWorker:
             
             if not frameQ.empty():#ret:
                 frame = frameQ.get()
-                self.setLastFrame(lastFrame,frame) #store last frame in queue
                 
-                idle.value=0
+                ns.lastFrame=frame
+                ns.processedFrames += 1
+                ns.idle=False
                 #self.logger.info("Got frame, start Face recognition.")
                 if self.newSession:
                     #new working session started
                     self.logger.info("Starting new working session")
-                    self.startNewSession(kfl,ufl,presence)                    
+                    self.startNewSession(kfl,ufl,ns)                    
                     self.newSession = False
 
                 self.logger.info("Received Frame. Start Face Recognition. Timestamp: %s", time.ctime(frame.timestamp))
                 startTime = time.time()
                 self.faceReconizer.detectFaces(frame)                
-                fps.value = 1/(time.time() - startTime)
-                self.logger.info("Frame Processed with FPS: %f. ", fps.value)
-                self.presenceDetector.detectPresence(frame,kfl,ufl,presence)
+                ns.workingFPS = 1/(time.time() - startTime)
+                self.logger.info("Frame Processed with FPS: %f. ", ns.workingFPS)
+                self.presenceDetector.detectPresence(frame,kfl,ufl,ns.presence)
                 
-                if presence.value:
-                    self.OHInterface.setPresent(self.getLastKnown.name)                    
+                if ns.presence:
+                    self.OHInterface.setPresent(self.getLastKnown().name)                    
 
 
                 #if presence is detected and detectKnownThenStop flag is true, break current worker session
-                if presence.value and self.detectKnownThenStop:
+                if ns.presence and self.detectKnownThenStop:
                     self.logger.info("Presence set. Stop streaming. Flush videoQ")
                     #self.pipeline.stopAndFlush()     
                     #TODO need to setup pipe between video proceee and sthi    
                 
             else:
                 self.logger.info("No Frame on Queue. Sleeping")
-                idle.value=1
+                ns.idle=True
                 #if not self.newSession and not self.pipeline.isStreaming:
                     #self.logger.info("Ending working session. Cleaning Up.")
                     #just got out of working session

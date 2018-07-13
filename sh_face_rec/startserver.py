@@ -90,13 +90,14 @@ def getStats():
                     streamingFPS = pipeline.streamingFPS,
                     lastRun = pipeline.getLastRun(),
                     isStreaming = pipeline.isStreaming,
-                    workerIdle = frameWorker.idle,
-                    processingFPS = frameWorker.workingFPS,
+                    workerIdle = frameWorker.getIdle(),
+                    processingFPS = frameWorker.getFPS(),
                     knownCount = frameWorker.getKnownCount(),
                     unknownCount = frameWorker.getUnknownCount(),
                     lastKnownName = lastKnownFaceName,
                     lastKnownTime = lastKnownFaceTime,
-                    lastUnknownTime = lastUnknownFaceTime),200
+                    lastUnknownTime = lastUnknownFaceTime,
+                    processedFrames = frameWorker.getProcessedFrames()),200
 
 @app.route('/getKnownCount')
 def getKnownCount():
@@ -192,7 +193,7 @@ def getUnknownFace(index):
 
 @app.route('/getLastFrame')
 def getLastFrame():
-    if frameWorker.lastFrame != None: 
+    if frameWorker.getLastFrame() != None: 
         return returnImg(frameWorker.getLastFrame().getBGR()),200
     else:
         return make_response(jsonify({'error': 'No last frame available'}), 404)

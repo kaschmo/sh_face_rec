@@ -39,31 +39,31 @@ class PresenceDetector:
 
                     #check if already in known faces
                     newFace = True
-                    for fl in range(len(kfl.queue)):
-                        if kfl.queue[fl].name == face.name:
+                    for fl in range(len(kfl)):
+                        if kfl[fl].name == face.name:
                             self.logger.info(" %s already detected.", face.name)
                             newFace = False
                     if newFace:
                         self.logger.info("New Person %s. Adding to list", face.name)
-                        kfl.put(face)
+                        kfl.append(face)
                         #trigger OH
-                    presence.value=1                   
+                    presence=True                
                     frame.presence = True
                 else:
                     self.logger.info("Unknowns in frame")
                     #check if face is already in unknown list
                     unknown_treshold = cf.getfloat('UNKNOWN_SAME')
                     inList = False
-                    for fl in range(len(ufl.queue)):
-                        distance = self.euclidean_dist(ufl.queue[fl].encoding, face.encoding)
+                    for fl in range(len(ufl)):
+                        distance = self.euclidean_dist(ufl[fl].encoding, face.encoding)
                        
                         if distance < unknown_treshold:
                             inList = True
                             self.logger.info("Unknown already in list")
                             break
-                    if not inList and len(ufl.queue) < self.max_unknownList:
-                        ufl.put(face)
-                        self.logger.info("Unknown not yet in list. Adding. Length: %d", len(ufl.queue))
+                    if not inList and len(ufl) < self.max_unknownList:
+                        ufl.append(face)
+                        self.logger.info("Unknown not yet in list. Adding. Length: %d", len(ufl))
                         
         else:
             self.logger.info("Frame contains no faces")
