@@ -15,7 +15,8 @@ if cf.getboolean('MULTIPROC'):
 else:
     from threading import Thread
     if sys.version_info >= (3, 0):
-        from queue import Queue
+        #from queue import Queue
+        from multiprocessing import Queue
     else:
         from Queue import Queue
 
@@ -38,7 +39,7 @@ class VideoPipeline:
         self.thread = None 
         self.process = None 
         self.startTime = None
-        self.Q = Queue()
+        self.Q = Queue(cf.getint('BUFFERSIZE'))
         self.isStreaming = False #semaphore for single streaming only
         self.streamingFPS = 0
         fileConfig('sh_face_rec/logging.conf')
@@ -91,10 +92,10 @@ class VideoPipeline:
             if ret:
                 #check again if isStreaming, since during waiting for frame from Cam, flush could have happend.
                 #need to avoid that after flush, new frame is put on queue. otherwise new working session will start
-                self.logger.info("Checking buffer: %d.",self.bufferSize)
-                if self.isStreaming and self.Q.qsize()<self.bufferSize:
+                #self.logger.info("Checking buffer: %d.",self.bufferSize)
+                if self.isStreaming and not self.Q.full(): #self.Q.qsize()<self.bufferSize:
                     self.Q.put(Frame(frame))
-                    self.logger.info("Put on Queue: Length: %d",self.Q.qsize())
+                    #self.logger.info("Put on Queue: Length: %d",self.Q.qsize())
                     #print("Put on Queue. Length {}.".format(self.Q.qsize()))
                     sessionFrameCounter += 1
             else:
@@ -106,7 +107,8 @@ class VideoPipeline:
         self.isStreaming = False
     
     def getLength(self):
-        return self.Q.qsize()
+        self.logger.error("Not implemented")
+        #return self.Q.qsize()
 
     def getFrame(self):
         #returns the top frame from buffer

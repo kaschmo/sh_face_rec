@@ -16,6 +16,7 @@ class Frame:
         self.faceDistances = [] #scalar distance
         self.faceNames = [] #string list of names in frame
         self.hasFace = False #indicates if >0 faces in frame
+        self.presence = False
 
     def getBGR(self):
         #for opencv
