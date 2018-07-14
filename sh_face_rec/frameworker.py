@@ -11,16 +11,9 @@ import configparser
 config = configparser.ConfigParser()
 config.read('sh_face_rec/config.ini')
 cf = config['FRAMEWORKER']
-if cf.getboolean('MULTIPROC'):
-    import multiprocessing
-    from multiprocessing import Process, Queue, Value, Manager
 
-else:
-    from threading import Thread
-    if sys.version_info >= (3, 0):
-        from queue import Queue
-    else:
-        from Queue import Queue
+import multiprocessing
+from multiprocessing import Process, Queue, Value, Manager
 
 
 #from facerecognizer import FaceRecognizer
@@ -117,19 +110,13 @@ class FrameWorker:
 
     def start(self, pipe):
         self.pipeline = pipe
-        if cf.getboolean('MULTIPROC'):
-            self.logger.info("Setting up Sub-Process for Frameworker")
+        
+        self.logger.info("Setting up Sub-Process for Frameworker")
 
-            self.process = Process(target=self.work, args=(pipe.Q, self.globalns, self.knownFaceList, self.unknownFaceList))
-            self.process.daemon = True
-            self.process.start()
-        else: 
-            #create new Thread
-            self.logger.info("Setting up Thread for Frameworker")
-
-            self.thread = Thread(target=self.work)
-            self.thread.daemon = True
-            self.thread.start()
+        self.process = Process(target=self.work, args=(pipe.Q, self.globalns, self.knownFaceList, self.unknownFaceList))
+        self.process.daemon = True
+        self.process.start()
+        
         self.logger.info("FrameWorker started.")
         
         

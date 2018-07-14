@@ -40,7 +40,7 @@ def detectFrom():
         streamTime = 10
     else:
         streamTime = int(request.json.get('Time',""))
-    if pipeline.isStreaming:
+    if pipeline.getStreaming():
         return jsonify("Error: only one stream allowed"),400
     pipeline.startStreaming(CamURL,streamTime)
     return jsonify(CamURL=CamURL),200
@@ -87,9 +87,9 @@ def getStats():
         lastUnknownFaceTime = 0
 
     return jsonify(#pipelineLength = pipeline.Q.qsize(),
-                    streamingFPS = pipeline.streamingFPS,
+                    streamingFPS = pipeline.getStreamingFPS(),
                     lastRun = pipeline.getLastRun(),
-                    isStreaming = pipeline.isStreaming,
+                    isStreaming = pipeline.getStreaming(),
                     workerIdle = frameWorker.getIdle(),
                     processingFPS = frameWorker.getFPS(),
                     knownCount = frameWorker.getKnownCount(),

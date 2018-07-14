@@ -1,1 +1,1 @@
-gunicorn --bind 192.168.1.25:5001 sh_face_rec.startserver:app --pythonpath './sh_face_rec/'
+gunicorn --bind 192.168.1.25:5001 sh_face_rec.startserver:app --pythonpath './sh_face_rec/' 

@@ -8,17 +8,10 @@ import configparser
 config = configparser.ConfigParser()
 config.read('sh_face_rec/config.ini')
 cf = config['VIDEOPIPELINE']
-if cf.getboolean('MULTIPROC'):
-    import multiprocessing
-    from multiprocessing import Process, Queue
 
-else:
-    from threading import Thread
-    if sys.version_info >= (3, 0):
-        #from queue import Queue
-        from multiprocessing import Queue
-    else:
-        from Queue import Queue
+import multiprocessing
+from multiprocessing import Process, Queue
+
 
 from frame import Frame
 import logging
@@ -35,76 +28,81 @@ class VideoPipeline:
         self.bufferSize=cf.getint('BUFFERSIZE')  
         self.streamTime=streamTime
 
-        self.videoCapture = None
-        self.thread = None 
         self.process = None 
         self.startTime = None
-        self.Q = Queue(cf.getint('BUFFERSIZE'))
-        self.isStreaming = False #semaphore for single streaming only
-        self.streamingFPS = 0
         fileConfig('sh_face_rec/logging.conf')
         self.logger = logging.getLogger("VideoPipeline")
         self.lastRun = 0
 
+        #multiproc
+        self.Q = Queue(cf.getint('BUFFERSIZE'))
+        self.manager = multiprocessing.Manager()
+        self.globalns = self.manager.Namespace()
+        #self.globalns.videoCapture = None
+        self.globalns.stringURL = ""
+        self.globalns.streamingFPS = 0
+        self.globalns.isStreaming = False
+
+    def getStreamingFPS(self):
+        return self.globalns.streamingFPS
+
+    def getStreaming(self):
+        return self.globalns.isStreaming
 
     def startStreaming(self, stringURL, streamTime = 10):
         #check and set semaphore
-        if self.isStreaming: 
+        if self.globalns.isStreaming: 
             self.logger.error("Only one stream at a time allowed")
             return 
-        else:
-            self.isStreaming = True
-            self.lastRun = time.time()
-        #set stream time. TODO this is not threadsafe.
+        
+        self.globalns.isStreaming = True
+        self.lastRun = time.time()
+        #OK to have global vars, since only one concurrent streaming process always active.
         self.streamTime = streamTime
 
-        if stringURL == "0":
-            self.logger.info("Capturing from internal cam. For %d s", self.streamTime)
-            self.videoCapture = cv2.VideoCapture(0) #get stream from webcam in laptop
-        else:
-            self.logger.info("Capturing from %s. For %d s",stringURL, self.streamTime)
-            self.videoCapture = cv2.VideoCapture(stringURL)        
+        self.globalns.stringURL = stringURL      
         self.startTime = time.time()
 
-        if cf.getboolean('MULTIPROC'):
-            #for multiprocessing
-            #multiprocessing.set_start_method('spawn') #not working
-            self.logger.info("Setting up Sub-Process for streaming")
-            self.process = Process(target=self.streamToBuffer)
-            self.process.daemon = True
-            self.process.start()
-        else:
-            self.logger.info("Setting up Thread for streaming")
-            # start a thread to capture the stream
-            self.thread = Thread(target=self.streamToBuffer)
-            self.thread.daemon = True
-            self.thread.start()
-        
-        
-    def streamToBuffer(self):
-        #does the frame capturing.
-        self.logger.info("Self Test: %d, %d",self.startTime, self.isStreaming)
-        sessionFrameCounter = 0
-        while (time.time()-self.startTime < self.streamTime and self.isStreaming):
             
-            ret, frame = self.videoCapture.read()
+        self.logger.info("Setting up Sub-Process for streaming")
+        self.process = Process(target=self.streamToBuffer, args=(self.Q, self.globalns))
+        self.process.daemon = True
+        self.process.start()
+        self.process.join()        
+        
+        
+    def streamToBuffer(self, frameQ, ns):
+        #does the frame capturing.
+        self.logger.info("Self Test: startTime: %d, isStreaming: %d, streamTime: %d",self.startTime, self.globalns.isStreaming, self.streamTime)
+        sessionFrameCounter = 0
+        if ns.stringURL == "0":
+            self.logger.info("Capturing from internal cam. For %d s", self.streamTime)
+            videoCapture = cv2.VideoCapture(0) #get stream from webcam in laptop
+        else:
+            self.logger.info("Capturing from %s. For %d s",ns.stringURL, self.streamTime)
+            videoCapture = cv2.VideoCapture(ns.stringURL)  
+
+        while (time.time()-self.startTime < self.streamTime and ns.isStreaming):
+            
+            ret, frame = videoCapture.read()
             
             if ret:
                 #check again if isStreaming, since during waiting for frame from Cam, flush could have happend.
                 #need to avoid that after flush, new frame is put on queue. otherwise new working session will start
                 #self.logger.info("Checking buffer: %d.",self.bufferSize)
-                if self.isStreaming and not self.Q.full(): #self.Q.qsize()<self.bufferSize:
-                    self.Q.put(Frame(frame))
+                if ns.isStreaming and not frameQ.full(): 
+                    frameQ.put(Frame(frame))
                     #self.logger.info("Put on Queue: Length: %d",self.Q.qsize())
                     #print("Put on Queue. Length {}.".format(self.Q.qsize()))
                     sessionFrameCounter += 1
             else:
                 self.logger.error("No Capture possible. Breaking")
                 break #this should work for both file reading and streaming from cam
-        self.streamingFPS = sessionFrameCounter/(time.time()-self.startTime)
-        self.logger.info("Captured %d frames in %fs. StreamingFPS: %f.", sessionFrameCounter, (time.time()-self.startTime), self.streamingFPS)
-        self.videoCapture.release()
-        self.isStreaming = False
+       
+        self.globalns.streamingFPS = sessionFrameCounter/(time.time()-self.startTime)
+        self.logger.info("Captured %d frames in %fs. StreamingFPS: %f.", sessionFrameCounter, (time.time()-self.startTime), self.globalns.streamingFPS)
+        videoCapture.release()
+        ns.isStreaming = False
     
     def getLength(self):
         self.logger.error("Not implemented")
@@ -122,7 +120,7 @@ class VideoPipeline:
         return QState, frame
         
     def stopAndFlush(self):
-        self.isStreaming = False
+        self.globalns.isStreaming = False
         with self.Q.mutex:
             self.Q.queue.clear()
 
