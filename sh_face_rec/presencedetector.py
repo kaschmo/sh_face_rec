@@ -3,6 +3,7 @@ import dlib
 from math import sqrt
 import logging
 from logging.config import fileConfig
+import multiprocessing
 #from multiprocessing import Process, Queue
 
 from frame import Frame
@@ -23,7 +24,7 @@ class PresenceDetector:
         fileConfig('sh_face_rec/logging.conf')
         self.logger = logging.getLogger("PresenceDetector")
 
-    def detectPresence(self, frame, kfl,ufl,presence):
+    def detectPresence(self, frame, kfl,ufl,ns):
         if frame.hasFace:
             #FUTURE: harder acceptance criteria for presence?
             #FUTURE: this approach only detects one person!
@@ -46,9 +47,9 @@ class PresenceDetector:
                     if newFace:
                         self.logger.info("New Person %s. Adding to list", face.name)
                         kfl.append(face)
-                        #trigger OH
-                    presence=True                
-                    frame.presence = True
+                        ns.newPresence = True
+
+                    ns.sessionPresence=True                
                 else:
                     self.logger.info("Unknowns in frame")
                     #check if face is already in unknown list

@@ -39,8 +39,6 @@ class FrameWorker:
         self.thread = None
         self.process = None
         self.presenceDetector = None #TF not multiprocessing safe. call PresenceDetector() in process
-        self.newSession = True #indicate if new session on VideoQueue startet. 
-        self.detectKnownThenStop = False #Flag. If one known is detected, working session stops.
         fileConfig('sh_face_rec/logging.conf')
         self.logger = logging.getLogger("FrameWorker")
         self.OHInterface = OHInterface()
@@ -54,8 +52,9 @@ class FrameWorker:
         self.globalns.workingFPS = 0
         self.globalns.lastFrame = None
         self.globalns.idle = True
-        self.globalns.presence = False
+        self.globalns.sessionPresence = False
         self.globalns.processedFrames = 0
+        self.globalns.newPresence = False
 
     #----------getter/setter API-----------
     def getIdle(self):
@@ -68,58 +67,39 @@ class FrameWorker:
         return self.globalns.processedFrames
 
     def getKnownFromList(self, index):
-        if len(self.knownFaceList)>0:
-            #return self.knownFaceList.queue[index]
-            #return self.getQElement(self.knownFaceList,index)
+        if len(self.knownFaceList)>0:            
             return self.knownFaceList[index]
         else:
-            #TODO Execption
+            self.logger.error("No known face in list")
             return None
 
     def getLastKnown(self):
-        #return self.getKnownFromList(self.getQLength(self.knownFaceList)-1)
         return self.getKnownFromList(len(self.knownFaceList)-1)
 
 
     def getUnknownFromList(self, index):
         if len(self.unknownFaceList)>0:
-            #return self.unknownFaceList.queue[index]
-            #return self.getQElement(self.unknownFaceList,index)
             return self.unknownFaceList[index]
         else:
-            #TODO Execption
+            self.logger.error("No unknown face in list")
             return None
 
     def getLastUnknown(self):
-        #return self.getUnknownFromList(len(self.unknownFaceList.queue)-1)
         return self.getUnknownFromList(len(self.unknownFaceList)-1)
     
     def getKnownCount(self):
-        #direct access to deque in Queue - not process save!
-        #return len(self.knownFaceList.queue)
         return len(self.knownFaceList)
 
     def getUnknownCount(self):
-        #direct access to deque in Queue - not process save!
-        #return len(self.unknownFaceList.queue)
         return len(self.unknownFaceList)
 
 
     def getLastFrame(self):
-        #assume that this is only called from master process. otherwise I need to always set self.lastFrame in Child processes too
-        #if not self.lastFrame.empty():
-        #    lastframe=self.lastFrame.get()
-        #    self.lastFrame.put(lastframe)
-        #    return lastframe
-        #else:
-        #    self.logger.error("Not implemented")
         if not self.globalns.lastFrame == None:
             return self.globalns.lastFrame
         else:
             self.logger.error("Not implemented")       
     
-    
-
     def alertUnknown(self):
         if self.getUnknownCount()> 0:
             self.OHInterface.unknownAlert(self.getUnknownCount())
@@ -129,25 +109,23 @@ class FrameWorker:
     #----------Start and Process Mgmt---------
     def startNewSession(self,kfl,ufl,ns):
         #reset/delete all lists of known and unknoen faces.
-        self.logger.info("Resetting Session")
-        kfl=[]
-        ufl=[]
-          
-        ns.presence = False
+        self.logger.info("Resetting Session - starting new")
+        #empty lists (kfl=[] not working)
+        del kfl[:]
+        del ufl[:]
+        ns.sessionPresence = False
 
     def start(self, pipe):
         self.pipeline = pipe
         if cf.getboolean('MULTIPROC'):
-            #multiprocessing.set_start_method('spawn', force=True)
-
-            self.logger.info("Setting up Sub-Process for streaming")
+            self.logger.info("Setting up Sub-Process for Frameworker")
 
             self.process = Process(target=self.work, args=(pipe.Q, self.globalns, self.knownFaceList, self.unknownFaceList))
             self.process.daemon = True
             self.process.start()
         else: 
             #create new Thread
-            self.logger.info("Setting up Thread for streaming")
+            self.logger.info("Setting up Thread for Frameworker")
 
             self.thread = Thread(target=self.work)
             self.thread.daemon = True
@@ -161,52 +139,45 @@ class FrameWorker:
         #called in separate Thread to work on pipeline
         self.presenceDetector = PresenceDetector()
         self.faceReconizer = FaceRecognizer()
-        while True:
-            #self.logger.info("Pipeline Length: %d", pipe.qsize())
-
-            #ret, frame = self.pipeline.getFrame()
-            
+        while True:            
             
             if not frameQ.empty():#ret:
                 frame = frameQ.get()
                 
                 ns.lastFrame=frame
-                ns.processedFrames += 1
-                ns.idle=False
+                ns.processedFrames += 1                
                 #self.logger.info("Got frame, start Face recognition.")
-                if self.newSession:
+                #Session tracking via idle. Works only as long as streaming from cam is faster than frameworker!
+                if ns.idle:
                     #new working session started
-                    self.logger.info("Starting new working session")
-                    self.startNewSession(kfl,ufl,ns)                    
-                    self.newSession = False
+                    self.startNewSession(kfl,ufl,ns)  
+                ns.idle=False                  
 
                 self.logger.info("Received Frame. Start Face Recognition. Timestamp: %s", time.ctime(frame.timestamp))
                 startTime = time.time()
                 self.faceReconizer.detectFaces(frame)                
+                
+
+                ns.newPresence = False
+                self.presenceDetector.detectPresence(frame,kfl,ufl,ns)
                 ns.workingFPS = 1/(time.time() - startTime)
                 self.logger.info("Frame Processed with FPS: %f. ", ns.workingFPS)
-                self.presenceDetector.detectPresence(frame,kfl,ufl,ns.presence)
-                
-                if ns.presence:
+
+                if ns.newPresence:
+                    #if new person detected. alert presence
                     self.OHInterface.setPresent(self.getLastKnown().name)                    
-
-
-                #if presence is detected and detectKnownThenStop flag is true, break current worker session
-                if ns.presence and self.detectKnownThenStop:
-                    self.logger.info("Presence set. Stop streaming. Flush videoQ")
-                    #self.pipeline.stopAndFlush()     
-                    #TODO need to setup pipe between video proceee and sthi    
                 
             else:
                 self.logger.info("No Frame on Queue. Sleeping")
-                ns.idle=True
-                #if not self.newSession and not self.pipeline.isStreaming:
-                    #self.logger.info("Ending working session. Cleaning Up.")
+                
+                if not ns.idle:
+                    self.logger.info("Ending working session. Cleaning Up.")
                     #just got out of working session
-                    #self.newSession = True
                     #send unknown notification
-                    #self.presenceDetector.alertUnknown()
+                    if not ns.sessionPresence:
+                        self.alertUnknown()
                     #DO NOT delete unonwns and knons list here, otherwise gone for server
+                ns.idle=True
                 time.sleep(1) #important to sleep. otherwise locking battle on queue
                 
                 
