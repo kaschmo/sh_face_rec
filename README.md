@@ -5,6 +5,9 @@ A simple face recognition system that can be used with any streaming camera and 
 - Once known faces are identified OpenHAB is notified via REST Interface call (requires REST API binding in OH)
 - If only unknown faces are identified OpenHAB is notified via REST Interface call
 
+Check the Wiki for detailed description of used Frameworks.
+[Wiki](https://github.com/kaschmo/sh_face_rec/wiki/Framework-comparison)
+
 ## Setup and Performance
 The application is written to work on a Raspberry Pi3.
 Python3 is recommended.
