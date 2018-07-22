@@ -32,6 +32,8 @@ class VideoPipeline:
         self.startTime = None
         fileConfig('sh_face_rec/logging.conf')
         self.logger = logging.getLogger("VideoPipeline")
+        self.logger.info("Started Videopipeline")
+
         self.lastRun = 0
 
         #multiproc

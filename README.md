@@ -32,10 +32,11 @@ Performance with 640x480 videos (mjpg) on the RPi3 is 1 FPS.
 - Train classifier
 ### Production
 - Face Recognition Server is started with 
-`./start.sh` (requires gunicorn as server)
+`./start.sh` (requires uwsgi as production server)
 - A new streaming and face recognition job can be started with
 `curl -i -H "Content-Type: application/json" -X POST -d {'"URL":"CAM_URL", "Time": "10"}' SERVER_URL:SERVER_PORT/detectJSON`
 - The whole http API is listed in startserver.py
+- config-file for uwsgi server is uwsgi_start.ini. Other servers such as gunicorn, gevent do not work with multiprocessing. The attribute processes should be >2 since the application forks 2 additional processes to main.
 
 ## Face Recognition Pipeline
 The Face Recognition Pipeline performs the following 4 steps with the listed frameworks/tools being used

@@ -8,17 +8,22 @@ from frame import Frame
 from downloader import Downloader
 import configparser
 import multiprocessing
+import logging
+from logging.config import fileConfig
+
 
 
 config = configparser.ConfigParser()
 config.read('sh_face_rec/config.ini')
 cf = config['STARTSERVER']
-
+#Major Objects instantiation
 pipeline = VideoPipeline()
 frameWorker = FrameWorker()
 downloader = Downloader()
+logger = logging.getLogger("root")
 
-frameWorker.start(pipeline) #needs to be started before flask. since flask captures main process
+frameWorker.start(pipeline) 
+
 app = Flask(__name__)
 
 @app.route('/')
@@ -42,6 +47,8 @@ def detectFrom():
         streamTime = int(request.json.get('Time',""))
     if pipeline.getStreaming():
         return jsonify("Error: only one stream allowed"),400
+
+    logger.info("Streaming request %s, %d seconds",CamURL, streamTime )
     pipeline.startStreaming(CamURL,streamTime)
     return jsonify(CamURL=CamURL),200
 
@@ -69,8 +76,7 @@ def downloadFrom():
 #curl -i http://0.0.0.0:5001/getStats
 @app.route('/getStats')
 def getStats():
-    #TODO detecte today, image_size, 
-    
+    logger.info("Providing stats")    
     if frameWorker.getKnownCount() > 0:
         lastKnownFace = frameWorker.getLastKnown()
         lastKnownFaceName = lastKnownFace.name
@@ -101,10 +107,12 @@ def getStats():
 
 @app.route('/getKnownCount')
 def getKnownCount():
+    logger.info("Providing KnownCount")
     return jsonify(knownCount = frameWorker.getKnownCount()),200
 
 @app.route('/getUnknownCount')
 def getUnknownCount():
+    logger.info("Providing KnownCount")
     return jsonify(unknownCount = frameWorker.getUnknownCount()),200
 
 ###---------------KNOWN ACCESS----------------
@@ -193,6 +201,7 @@ def getUnknownFace(index):
 
 @app.route('/getLastFrame')
 def getLastFrame():
+    logger.info("Providing LastFrame")
     if frameWorker.getLastFrame() != None: 
         return returnImg(frameWorker.getLastFrame().getBGR()),200
     else:
@@ -202,6 +211,7 @@ def getLastFrame():
 
 @app.errorhandler(404)
 def not_found(error):
+    logger.error("Page not found")
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 #-----------Helper Functions--------------------
@@ -212,13 +222,10 @@ def returnImg(BGRimg):
     response.headers['Content-Type'] = 'image/png'
     return response
 
-
+#this will never be called from production server routines! only works for python3 startserver.py
 if __name__ == "__main__":
     #frameWorker.start(pipeline) #needs to be started before flask. since flask captures main process
-    print("Starting from main in startserver.py")
+    logger.info("Starting from main in startserver.py")
+        
     app.run(host=cf['IP'], port=cf.getint('PORT'), debug=False)
 
-#further API ideas
-#- stopstreaming
-#- getStatus: working, streaming
-#- getLastFrame

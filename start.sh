@@ -1,1 +1,1 @@
-gunicorn --bind 192.168.1.25:5001 sh_face_rec.startserver:app --pythonpath './sh_face_rec/' -w 2
+gunicorn --bind 127.0.0.1:5001 --log-level info --pythonpath './sh_face_rec/' -k gevent --preload sh_face_rec.startserver:app
