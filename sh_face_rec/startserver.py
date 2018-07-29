@@ -7,16 +7,23 @@ from frameworker import FrameWorker
 from frame import Frame
 from downloader import Downloader
 import configparser
+import multiprocessing
+import logging
+from logging.config import fileConfig
+
+
 
 config = configparser.ConfigParser()
 config.read('sh_face_rec/config.ini')
 cf = config['STARTSERVER']
-
+#Major Objects instantiation
 pipeline = VideoPipeline()
 frameWorker = FrameWorker()
 downloader = Downloader()
+logger = logging.getLogger("root")
 
-frameWorker.start(pipeline) #needs to be started before flask. since flask captures main process
+frameWorker.start(pipeline) 
+
 app = Flask(__name__)
 
 @app.route('/')
@@ -38,8 +45,10 @@ def detectFrom():
         streamTime = 10
     else:
         streamTime = int(request.json.get('Time',""))
-    if pipeline.isStreaming:
+    if pipeline.getStreaming():
         return jsonify("Error: only one stream allowed"),400
+
+    logger.info("Streaming request %s, %d seconds",CamURL, streamTime )
     pipeline.startStreaming(CamURL,streamTime)
     return jsonify(CamURL=CamURL),200
 
@@ -67,10 +76,9 @@ def downloadFrom():
 #curl -i http://0.0.0.0:5001/getStats
 @app.route('/getStats')
 def getStats():
-    #TODO detecte today, image_size, 
-    
-    if frameWorker.presenceDetector.getKnownCount() > 0:
-        lastKnownFace = frameWorker.presenceDetector.getLastKnown()
+    logger.info("Providing stats")    
+    if frameWorker.getKnownCount() > 0:
+        lastKnownFace = frameWorker.getLastKnown()
         lastKnownFaceName = lastKnownFace.name
         lastKnownFaceTime = lastKnownFace.getCTime()
     else:
@@ -78,31 +86,34 @@ def getStats():
         lastKnownFaceTime = 0
     
     
-    if frameWorker.presenceDetector.getUnknownCount() > 0:
-        lastUnknownFace = frameWorker.presenceDetector.getLastUnknown()
+    if frameWorker.getUnknownCount() > 0:
+        lastUnknownFace = frameWorker.getLastUnknown()
         lastUnknownFaceTime = lastUnknownFace.getCTime()
     else:
         lastUnknownFaceTime = 0
 
-    return jsonify(pipelineLength = pipeline.Q.qsize(),
-                    streamingFPS = pipeline.streamingFPS,
+    return jsonify(#pipelineLength = pipeline.Q.qsize(),
+                    streamingFPS = pipeline.getStreamingFPS(),
                     lastRun = pipeline.getLastRun(),
-                    isStreaming = pipeline.isStreaming,
-                    workerIdle = frameWorker.idle,
-                    processingFPS = frameWorker.workingFPS,
-                    knownCount = frameWorker.presenceDetector.getKnownCount(),
-                    unknownCount = frameWorker.presenceDetector.getUnknownCount(),
+                    isStreaming = pipeline.getStreaming(),
+                    workerIdle = frameWorker.getIdle(),
+                    processingFPS = frameWorker.getFPS(),
+                    knownCount = frameWorker.getKnownCount(),
+                    unknownCount = frameWorker.getUnknownCount(),
                     lastKnownName = lastKnownFaceName,
                     lastKnownTime = lastKnownFaceTime,
-                    lastUnknownTime = lastUnknownFaceTime),200
+                    lastUnknownTime = lastUnknownFaceTime,
+                    processedFrames = frameWorker.getProcessedFrames()),200
 
 @app.route('/getKnownCount')
 def getKnownCount():
-    return jsonify(knownCount = frameWorker.presenceDetector.getKnownCount()),200
+    logger.info("Providing KnownCount")
+    return jsonify(knownCount = frameWorker.getKnownCount()),200
 
 @app.route('/getUnknownCount')
 def getUnknownCount():
-    return jsonify(unknownCount = frameWorker.presenceDetector.getUnknownCount()),200
+    logger.info("Providing KnownCount")
+    return jsonify(unknownCount = frameWorker.getUnknownCount()),200
 
 ###---------------KNOWN ACCESS----------------
 
@@ -110,10 +121,10 @@ def getUnknownCount():
 def getKnown(index):
     if index == -1:
         #get last Face
-        index = frameWorker.presenceDetector.getKnownCount()-1
+        index = frameWorker.getKnownCount()-1
 
-    if frameWorker.presenceDetector.getKnownCount() > index: 
-        KnownFace = frameWorker.presenceDetector.getKnownFromList(index)
+    if frameWorker.getKnownCount() > index: 
+        KnownFace = frameWorker.getKnownFromList(index)
         KnownFaceName = KnownFace.name
         KnownFaceTime = KnownFace.getCTime()
         KnownFaceDistance = KnownFace.distance
@@ -137,9 +148,9 @@ def getLastKnownFace():
 def getKnownFace(index):
     if index == -1:
         #get last Face
-        index = frameWorker.presenceDetector.getKnownCount()-1
-    if frameWorker.presenceDetector.getKnownCount() > index: 
-        lastFace = frameWorker.presenceDetector.getKnownFromList(index).getBGR()
+        index = frameWorker.getKnownCount()-1
+    if frameWorker.getKnownCount() > index: 
+        lastFace = frameWorker.getKnownFromList(index).getBGR()
         return returnImg(lastFace),200
     else:
         return make_response(jsonify({'error': 'Index out of range'}), 404)
@@ -151,10 +162,10 @@ def getKnownFace(index):
 def getUnknown(index):
     if index == -1:
         #get last UnknownFace
-        index = frameWorker.presenceDetector.getUnknownCount()-1
+        index = frameWorker.getUnknownCount()-1
 
-    if frameWorker.presenceDetector.getUnknownCount() > index:
-        UnknownFace = frameWorker.presenceDetector.getUnknownFromList(index)
+    if frameWorker.getUnknownCount() > index:
+        UnknownFace = frameWorker.getUnknownFromList(index)
         UnknownFaceTime = UnknownFace.getCTime()
         UnknownFaceName = UnknownFace.name
         UnknownFaceDistance = UnknownFace.distance
@@ -179,9 +190,9 @@ def getLastUnknownFace():
 def getUnknownFace(index):
     if index == -1:
         #get last UnknownFace
-        index = frameWorker.presenceDetector.getUnknownCount()-1
-    if frameWorker.presenceDetector.getUnknownCount() > index: 
-        lastFace = frameWorker.presenceDetector.getUnknownFromList(index).getBGR()
+        index = frameWorker.getUnknownCount()-1
+    if frameWorker.getUnknownCount() > index: 
+        lastFace = frameWorker.getUnknownFromList(index).getBGR()
         return returnImg(lastFace),200
     else:
         return make_response(jsonify({'error': 'Index out of range'}), 404)
@@ -190,8 +201,9 @@ def getUnknownFace(index):
 
 @app.route('/getLastFrame')
 def getLastFrame():
-    if frameWorker.lastFrame != None: 
-        return returnImg(frameWorker.lastFrame.getBGR()),200
+    logger.info("Providing LastFrame")
+    if frameWorker.getLastFrame() != None: 
+        return returnImg(frameWorker.getLastFrame().getBGR()),200
     else:
         return make_response(jsonify({'error': 'No last frame available'}), 404)
 
@@ -199,6 +211,7 @@ def getLastFrame():
 
 @app.errorhandler(404)
 def not_found(error):
+    logger.error("Page not found")
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 #-----------Helper Functions--------------------
@@ -209,15 +222,10 @@ def returnImg(BGRimg):
     response.headers['Content-Type'] = 'image/png'
     return response
 
-
+#this will never be called from production server routines! only works for python3 startserver.py
 if __name__ == "__main__":
     #frameWorker.start(pipeline) #needs to be started before flask. since flask captures main process
-    print("Starting from main in startserver.py")
-    #app.run(host='192.168.1.25', port=5001, debug=False)
+    logger.info("Starting from main in startserver.py")
+        
     app.run(host=cf['IP'], port=cf.getint('PORT'), debug=False)
 
-
-#further API ideas
-#- stopstreaming
-#- getStatus: working, streaming
-#- getLastFrame

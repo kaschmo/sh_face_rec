@@ -17,13 +17,13 @@ class ClassifierTest(unittest.TestCase):
         config.read('sh_face_rec/config.ini')
         cf = config['TEST']
 
-        writeToFile = False    
+        writeToFile = True    
         FR = FaceRecognizer()
         FV = FrameViewer()
         #video_path="/Users/karsten/Downloads/train_videos/"
         video_path=cf["TEST_VIDEO_PATH"]
         #video_path="/Users/karsten/Documents/00_Project_Support/180323_FaceRecognition/04_face_recognition_lib/videos/"
-        testvideo = "test_mjpg.avi"
+        testvideo = "blog_k2.avi"
         #testvideo = "test_karsten_close.avi"
         #testvideo = "test_mara_bw_fast.avi"
         #testvideo = "180412_hall_rgb4.avi"

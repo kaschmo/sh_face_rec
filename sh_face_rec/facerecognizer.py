@@ -63,6 +63,7 @@ class FaceRecognizer:
     def __init__(self):
         fileConfig('sh_face_rec/logging.conf')
         self.logger = logging.getLogger("FaceRecognizer")
+        self.logger.info("Initializing MTCNN Detector")
         #init required models        
         with open(self.knn_model_path, 'rb') as f:
             self.knn_clf = pickle.load(f)
@@ -75,7 +76,7 @@ class FaceRecognizer:
 
         #MTCNN based
         frame.faceLocations = self.MTCNN_face_detector.detect(frame)
-
+        #self.logger.info("Passed MTCNN")
         #iterate over all detected faces and do encoding
         for face_location in frame.faceLocations:
             #get landmarks and add to frame
@@ -84,7 +85,7 @@ class FaceRecognizer:
             #encode face and add to frame
             face_embedding = self.face_encoder.compute_face_descriptor(frame.getRGB(), raw_landmark, self.face_encoding_num_jitters)
             frame.faceEmbeddings.append(face_embedding)
-        
+        #self.logger.info("Passed Encoding")
         #classify if faces encodings exists
         if len(frame.faceEmbeddings) > 0:  
             frame.hasFace = True

@@ -6,6 +6,7 @@ models/
 training_data/
 testing_data/
 sh_face_rec/config.ini
+uwsgi_start_pi.ini
 
 
 

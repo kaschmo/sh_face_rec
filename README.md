@@ -1,16 +1,21 @@
 # sh_face_rec - Smart Home Face Recognition
 A simple face recognition system that can be used with any streaming camera and works with OpenHAB via REST communication.
-- Runs a small flask based http server that gets video streams from IP cameras on network and stores in a queue/pipeline
-- Worker application in processes the video frames and runs a face recognition procedure on each of the frames in pipeline
+- Runs a small flask based http server that gets video streams from IP cameras on network and stores in a queue.
+- Multiprocessed worker application process the video frames and run a face recognition procedure on each of the frames in pipeline
 - Once known faces are identified OpenHAB is notified via REST Interface call (requires REST API binding in OH)
 - If only unknown faces are identified OpenHAB is notified via REST Interface call
+
+Check the Wiki for detailed description of possible Face Detection/Recognition Frameworks incl. evaluation.
+[Wiki](https://github.com/kaschmo/sh_face_rec/wiki/Framework-comparison)
 
 ## Setup and Performance
 The application is written to work on a Raspberry Pi3.
 Python3 is recommended.
-See requirements.txt for further dependencies.
+I used Anaconda as environment manager. Use the env.yml file in the root directory to set up an working Anaconda environment.
+Configuration is pretty self-explanatory in confi.ini
+
 Image/Video Handling is done with openCV, so any streaming IP camera or file system videos should work (not tested)
-Performance with 640x480 videos (mjpg) on the RPi3 is 1 FPS.
+Performance with 640x480 videos (mjpg) on the RPi3 is 3 FPS if no faces are present, 0.7 FPS with one face, 0.4 FPS with 2 faces.
 
 ### Folder Structure
 - sh_face_rec: contains all the code
@@ -25,14 +30,18 @@ Performance with 640x480 videos (mjpg) on the RPi3 is 1 FPS.
 ## Startup and API
 ### Preparation
 - Configuration: all config settings need to be done in config.ini. (use config_template.ini and rename)
-- Download pre-trained models (see below)
-- Train classifier
-### Production
+- Download pre-trained models for detector, face recognition (see below)
+- Train classifier on your target platform (due to cross-platform pickle issues)
+- run tests first
+
+### Production (uWSGI Server)
+- Although the application is working with flask's internal werkzeug debug server, I recommend using a production server such as uWSGI
 - Face Recognition Server is started with 
-`./start.sh` (requires gunicorn as server)
+`./start.sh` (requires uwsgi as production server)
 - A new streaming and face recognition job can be started with
 `curl -i -H "Content-Type: application/json" -X POST -d {'"URL":"CAM_URL", "Time": "10"}' SERVER_URL:SERVER_PORT/detectJSON`
 - The whole http API is listed in startserver.py
+- config-file for uwsgi server is uwsgi_start.ini. Other servers such as gunicorn, gevent do not work with multiprocessing. The attribute processes should be >2 since the application forks 2 additional processes to main.
 
 ## Face Recognition Pipeline
 The Face Recognition Pipeline performs the following 4 steps with the listed frameworks/tools being used
@@ -63,9 +72,11 @@ Execution: `python -m unittest test.test_classifier``
 - Loads image, runs all pipeline steps
 - visualizes landmarks and bounding boxes
 - shows each single face (known and unknowns) with distance and original size information
+`python3 -m unittest test.test_facerecognizer`
 
 ### Test_Classifier
 - Operates on video
 - executes full recognition stack on video
 - visualizes bounding boxes and detected names
 - can write to file
+`python3 -m unittest test.test_classifier`

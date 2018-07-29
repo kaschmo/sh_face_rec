@@ -41,7 +41,7 @@ class MTCNNDetector:
         frame_size = np.asarray(rgbframe.shape)[0:2]
 
         bounding_boxes, _ = align.detect_face.detect_face(rgbframe, self.minsize, self.pnet, self.rnet, self.onet, self.threshold, self.factor)
-        
+
         #convert to dlib rectangles
         face_locations = []
         det = bounding_boxes[:,0:4] #only take coordinates

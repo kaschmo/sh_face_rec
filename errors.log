@@ -1,0 +1,31 @@
+2018-07-28 22:35:21,188 PID: 25792 INFO - VideoPipeline: Started Videopipeline
+2018-07-28 22:35:21,246 PID: 25792 INFO - FrameWorker: Setting up Sub-Process for Frameworker
+2018-07-28 22:35:21,248 PID: 25792 INFO - FrameWorker: FrameWorker started.
+2018-07-28 22:35:23,656 PID: 25795 INFO - MTCNNDetector: Creating networks and loading parameters
+2018-07-28 22:35:25,254 PID: 25795 INFO - FaceRecognizer: Initializing MTCNN Detector
+2018-07-28 22:35:25,259 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:26,261 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:27,264 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:28,267 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:29,271 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:30,273 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:31,276 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:32,278 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:33,281 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:34,284 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:35,287 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:36,290 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:37,293 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:38,301 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:39,304 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:40,307 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:41,310 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:42,313 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:43,316 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:44,319 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:45,322 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:46,324 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:47,327 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:35:48,330 PID: 25795 INFO - FrameWorker: No Frame on Queue. Sleeping
+2018-07-28 22:40:59,046 PID: 25941 ERROR - VideoPipeline: No Capture possible. Breaking
+2018-07-28 22:41:00,574 PID: 25930 ERROR - OHInterface: Error while posting.

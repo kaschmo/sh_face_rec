@@ -1,7 +1,9 @@
-#Testcases for frameworker
-#python -m unittest test.test_frameworker
+#Testcases for frameworker #python -m unittest test.test_frameworker
+
 import unittest
+
 import cv2
+import sh_face_rec
 from sh_face_rec.frame import Frame
 from sh_face_rec.videopipeline import VideoPipeline
 from sh_face_rec.frameworker import FrameWorker

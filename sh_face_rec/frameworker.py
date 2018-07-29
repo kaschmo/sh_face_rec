@@ -6,12 +6,17 @@
 import sys
 import time
 import dlib
-if sys.version_info >= (3, 0):
-    from multiprocessing import Process, Queue
-else:
-    from threading import Thread
+import sys
+import configparser
+config = configparser.ConfigParser()
+config.read('sh_face_rec/config.ini')
+cf = config['FRAMEWORKER']
 
-from facerecognizer import FaceRecognizer
+import multiprocessing
+from multiprocessing import Process, Queue, Value, Manager
+
+
+#from facerecognizer import FaceRecognizer
 from frame import Frame
 from ohinterface import OHInterface
 from face import Face
@@ -22,69 +27,144 @@ from logging.config import fileConfig
 class FrameWorker:
     def __init__(self):
         #pipeline to operate on 
-        self.pipeline = None
-        self.faceReconizer = FaceRecognizer()
+        self.pipeline = Queue()
+        self.faceReconizer = None #FaceRecognizer()
         self.thread = None
-        self.workingFPS = 0
         self.process = None
-        self.presenceDetector = PresenceDetector()
-        self.newSession = True #indicate if new session on Queue startet. #TODO multiproc threadsafe?
-        self.detectKnownThenStop = False #Flag. If one known is detected, working session stops.
+        self.presenceDetector = None #TF not multiprocessing safe. call PresenceDetector() in process
         fileConfig('sh_face_rec/logging.conf')
         self.logger = logging.getLogger("FrameWorker")
-        self.lastFrame = None
-        self.idle = True
+        self.OHInterface = OHInterface()
+
+
+        #mutliproc
+        self.manager = multiprocessing.Manager()
+        self.globalns = self.manager.Namespace()
+        self.knownFaceList = self.manager.list()
+        self.unknownFaceList = self.manager.list()
+        self.globalns.workingFPS = 0
+        self.globalns.lastFrame = None
+        self.globalns.idle = True
+        self.globalns.sessionPresence = False
+        self.globalns.processedFrames = 0
+        self.globalns.newPresence = False
+
+    #----------getter/setter API-----------
+    def getIdle(self):
+        return self.globalns.idle
+
+    def getFPS(self):
+        return self.globalns.workingFPS
+
+    def getProcessedFrames(self):
+        return self.globalns.processedFrames
+
+    def getKnownFromList(self, index):
+        if len(self.knownFaceList)>0:            
+            return self.knownFaceList[index]
+        else:
+            self.logger.error("No known face in list")
+            return None
+
+    def getLastKnown(self):
+        return self.getKnownFromList(len(self.knownFaceList)-1)
+
+
+    def getUnknownFromList(self, index):
+        if len(self.unknownFaceList)>0:
+            return self.unknownFaceList[index]
+        else:
+            self.logger.error("No unknown face in list")
+            return None
+
+    def getLastUnknown(self):
+        return self.getUnknownFromList(len(self.unknownFaceList)-1)
+    
+    def getKnownCount(self):
+        return len(self.knownFaceList)
+
+    def getUnknownCount(self):
+        return len(self.unknownFaceList)
+
+
+    def getLastFrame(self):
+        if not self.globalns.lastFrame == None:
+            return self.globalns.lastFrame
+        else:
+            self.logger.error("Not implemented")       
+    
+    def alertUnknown(self):
+        if self.getUnknownCount()> 0:
+            self.OHInterface.unknownAlert(self.getUnknownCount())
+
+    
+
+    #----------Start and Process Mgmt---------
+    def startNewSession(self,kfl,ufl,ns):
+        #reset/delete all lists of known and unknoen faces.
+        self.logger.info("Resetting Session - starting new")
+        #empty lists (kfl=[] not working)
+        del kfl[:]
+        del ufl[:]
+        ns.sessionPresence = False
 
     def start(self, pipe):
         self.pipeline = pipe
-        if sys.version_info >= (3, 0):
-            self.process = Process(target=self.work)
-            self.process.daemon = True
-            self.process.start()
-        else: 
-            #create new Thread
-            self.thread = Thread(target=self.work)
-            self.thread.daemon = True
-            self.thread.start()
+        
+        self.logger.info("Setting up Sub-Process for Frameworker")
+
+        self.process = Process(target=self.work, args=(pipe.Q, self.globalns, self.knownFaceList, self.unknownFaceList))
+        self.process.daemon = True
+        self.process.start()
+        
         self.logger.info("FrameWorker started.")
         
         
-    def work(self):
-        #called in separate Thread to work on pipeline
-        while True:
-            ret, frame = self.pipeline.getFrame()
-            
-            if ret:
-                self.lastFrame = frame #store frame
-                self.idle=False
-                #self.logger.info("Got frame, start Face recognition.")
-                if self.newSession:
-                    #new working session started
-                    self.logger.info("Starting new working session")
-                    self.presenceDetector.newSession()                    
-                    self.newSession = False
+    def work(self, frameQ, ns, kfl, ufl):
+        from facerecognizer import FaceRecognizer
 
-                #print("Got Frame and start Face Recognition. Timestamp {}".format(time.ctime(frame.timestamp)))
+        #called in separate Thread to work on pipeline
+        self.presenceDetector = PresenceDetector()
+        self.faceReconizer = FaceRecognizer()
+        while True:            
+            
+            if not frameQ.empty():#ret:
+                frame = frameQ.get()
+                
+                ns.lastFrame=frame
+                ns.processedFrames += 1                
+                #self.logger.info("Got frame, start Face recognition.")
+                #Session tracking via idle. Works only as long as streaming from cam is faster than frameworker!
+                if ns.idle:
+                    #new working session started
+                    self.startNewSession(kfl,ufl,ns)  
+                ns.idle=False                  
+
+                #self.logger.info("Received Frame. Start Face Recognition. Timestamp: %s", time.ctime(frame.timestamp))
                 startTime = time.time()
                 self.faceReconizer.detectFaces(frame)                
-                self.workingFPS = 1/(time.time() - startTime)
-                self.logger.info("Frame Processed with FPS: %f. Queue: %d", self.workingFPS, self.pipeline.getLength())
-                self.presenceDetector.detectPresence(frame)
                 
-                #if presence is detected and detectKnownThenStop flag is true, break current worker session
-                if self.presenceDetector.presence and self.detectKnownThenStop:
-                    self.pipeline.stopAndFlush()         
+
+                ns.newPresence = False
+                self.presenceDetector.detectPresence(frame,kfl,ufl,ns)
+                ns.workingFPS = 1/(time.time() - startTime)
+                #self.logger.info("Frame Processed with FPS: %f. ", ns.workingFPS)
+
+                if ns.newPresence:
+                    #if new person detected. alert presence
+                    self.OHInterface.setPresent(self.getLastKnown().name)                    
                 
             else:
-                self.logger.info("No Frame on Queue. Sleeping")
-                self.idle=True
-                if not self.newSession and not self.pipeline.isStreaming:
-                    self.logger.info("Ending working session. Cleaning Up.")
+                #self.logger.info("No Frame on Queue. Sleeping")
+                
+                if not ns.idle:
+                    self.logger.info("Ending session. Processed %d frames.", ns.processedFrames)
                     #just got out of working session
-                    self.newSession = True
                     #send unknown notification
-                    self.presenceDetector.alertUnknown()
+                    if not ns.sessionPresence:
+                        self.alertUnknown()
                     #DO NOT delete unonwns and knons list here, otherwise gone for server
+                ns.idle=True
                 time.sleep(1) #important to sleep. otherwise locking battle on queue
                 
                 

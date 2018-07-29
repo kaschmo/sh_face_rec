@@ -14,7 +14,8 @@ cf = config['OHINTERFACE']
 class OHInterface:
     def __init__(self):
         self.OHIP = cf['OH_IP'] #storing IP address of OH server
-        self.OHPort = cf['OH_PORT'] 
+        self.OHPort = cf['OH_PORT']
+        self.timeout = cf.getint('OH_timeout')
         fileConfig('sh_face_rec/logging.conf')
         self.logger = logging.getLogger("OHInterface")
         #No Authentification required.
@@ -27,13 +28,17 @@ class OHInterface:
     def postCommand(self, item, state):
         url = 'http://%s:%s/rest/items/%s'%(self.OHIP, self.OHPort, item)
         self.logger.info("Posting: %s. State: %s",url, state)
-        req = requests.post(url, data=state, headers=self.basic_header())
-        self.logger.info("Returned: %s", req.status_code)
-        if req.status_code != '200':
-            self.logger.error("Error while posting.") 
-            #req.raise_for_status()
-        else:    
-            return '200'
+        try:
+            req = requests.post(url, data=state, headers=self.basic_header(), timeout=self.timeout)
+        
+            self.logger.info("Returned: %s", req.status_code)
+            if req.status_code != '200':
+                self.logger.error("Error while posting.") 
+                req.raise_for_status()
+            else:    
+                return '200'
+        except:# (requests.Timeout):
+            self.logger.error("Error in contacting OH. Status not updated.: %s")
     
     def putStatus(self, item, state):
         url = 'http://%s:%s/rest/items/%s/state'%(self.OHIP, self.OHPort, item)
