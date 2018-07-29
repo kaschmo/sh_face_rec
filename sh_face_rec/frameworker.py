@@ -140,7 +140,7 @@ class FrameWorker:
                     self.startNewSession(kfl,ufl,ns)  
                 ns.idle=False                  
 
-                self.logger.info("Received Frame. Start Face Recognition. Timestamp: %s", time.ctime(frame.timestamp))
+                #self.logger.info("Received Frame. Start Face Recognition. Timestamp: %s", time.ctime(frame.timestamp))
                 startTime = time.time()
                 self.faceReconizer.detectFaces(frame)                
                 
@@ -148,17 +148,17 @@ class FrameWorker:
                 ns.newPresence = False
                 self.presenceDetector.detectPresence(frame,kfl,ufl,ns)
                 ns.workingFPS = 1/(time.time() - startTime)
-                self.logger.info("Frame Processed with FPS: %f. ", ns.workingFPS)
+                #self.logger.info("Frame Processed with FPS: %f. ", ns.workingFPS)
 
                 if ns.newPresence:
                     #if new person detected. alert presence
                     self.OHInterface.setPresent(self.getLastKnown().name)                    
                 
             else:
-                self.logger.info("No Frame on Queue. Sleeping")
+                #self.logger.info("No Frame on Queue. Sleeping")
                 
                 if not ns.idle:
-                    self.logger.info("Ending working session. Cleaning Up.")
+                    self.logger.info("Ending session. Processed %d frames.", ns.processedFrames)
                     #just got out of working session
                     #send unknown notification
                     if not ns.sessionPresence:

@@ -1,0 +1,14 @@
+[Unit]
+Description=uWSGI instance for sh_face_rec
+After=network.target
+
+[Service]
+User=pi
+Group=www-data
+WorkingDirectory=/home/pi/01_face_recog/sh_face_rec
+Environment="PATH=/home/pi/01_face_recog/sh_face_rec"
+ExecStart=/usr/local/bin/uwsgi /home/pi/01_face_recog/sh_face_rec/uwsgi_start.ini
+
+[Install]
+WantedBy=multi-user.target
+

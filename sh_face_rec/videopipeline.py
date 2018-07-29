@@ -44,6 +44,7 @@ class VideoPipeline:
         self.globalns.stringURL = ""
         self.globalns.streamingFPS = 0
         self.globalns.isStreaming = False
+        self.globalns.cap_frames = 0
 
     def getStreamingFPS(self):
         return self.globalns.streamingFPS
@@ -62,7 +63,8 @@ class VideoPipeline:
         #OK to have global vars, since only one concurrent streaming process always active.
         self.streamTime = streamTime
 
-        self.globalns.stringURL = stringURL      
+        self.globalns.stringURL = stringURL  
+        self.globalns.cap_frames = 0    
         self.startTime = time.time()
 
             
@@ -83,11 +85,17 @@ class VideoPipeline:
         else:
             self.logger.info("Capturing from %s. For %d s",ns.stringURL, self.streamTime)
             videoCapture = cv2.VideoCapture(ns.stringURL)  
+            #this init calls takes long time on Rpi: 7-12s
+        self.logger.info("CV2 Opened: %d, CV2 Buffer size: %d",	videoCapture.isOpened(), videoCapture.get(cv2.CAP_PROP_BUFFERSIZE))
 
-        while (time.time()-self.startTime < self.streamTime and ns.isStreaming):
+        #videoCapture.set(cv2.CAP_PROP_BUFFERSIZE,0)
+        #videoCapture.open("http://admin:WlunW2013@192.168.1.32/video.cgi?.mjpg", cv2.CAP_FFMPEG)
+        #workaround that streaming will happen even though when initialization of VideoCapture takes too long
+        min_fps = cf.getint('MIN_FPS')
+        min_frames = self.streamTime * min_fps
+        while ((time.time()-self.startTime < self.streamTime and ns.isStreaming) or sessionFrameCounter < min_frames):
             
             ret, frame = videoCapture.read()
-            
             if ret:
                 #check again if isStreaming, since during waiting for frame from Cam, flush could have happend.
                 #need to avoid that after flush, new frame is put on queue. otherwise new working session will start
