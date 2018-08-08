@@ -1,13 +1,13 @@
 # sh_face_rec - Smart Home Face Recognition
-A simple face recognition system that can be used with any streaming camera and works with OpenHAB via REST communication.
-- Runs a small flask based http server that gets video streams from IP cameras on network and stores in a queue.
-- Multiprocessed worker application process the video frames and run a face recognition procedure on each of the frames in pipeline
+A simple face recognition system that can be used with any streaming camera and works with OpenHAB via REST communication. Runs on a Raspberry Pi.
+- Runs a small flask based http server that gets video streams from IP cameras on network and stores frames in a queue.
+- Multiprocessing worker application process the video frames and run a face recognition procedure on each of the frames in pipeline
 - Pipeline (see below): 
-- - Image Handling w/ OpenCV
-- - Face Detection w/ MTCNN Tensorflow Implementation
-- - Aligning/Cropping using dlib 
-- - embedding with dlib CNN 
-- - classification with KNN 
+    - Image Handling w/ OpenCV
+    - Face Detection w/ MTCNN Tensorflow Implementation
+    - Aligning/Cropping using dlib 
+    - embedding with dlib CNN 
+    - classification with KNN 
 - Once known faces are identified OpenHAB is notified via REST Interface call (requires REST API binding in OH)
 - If only unknown faces are identified OpenHAB is notified via REST Interface call
 
@@ -19,21 +19,26 @@ Check the Wiki for detailed description of possible Face Detection/Recognition F
 
 ## Setup and Performance
 The application is written to work on a Raspberry Pi3.
-Python3 is recommended.
+Python3 is required.
 I used Anaconda as environment manager. Use the env.yml file in the root directory to set up an working Anaconda environment.
 Configuration is pretty self-explanatory in confi.ini
 
 Image/Video Handling is done with openCV, so any streaming IP camera or file system videos should work (not tested)
-Performance with 640x480 videos (mjpg) on the RPi3 is 3 FPS if no faces are present, 0.7 FPS with one face, 0.4 FPS with 2 faces.
+Performance with 640x480 videos (mjpg) on the RPi3:
+- 3 FPS if no faces are in frame 
+- 0.7 FPS with one face in frame
+- 0.4 FPS with 2 faces in frame
 
 ![Setup Pis](doc/images/setup.png?raw=true)
 
 
 ### Folder Structure
 - sh_face_rec: contains all the code
--- align: mtcnn detector code (from facenet)
--- config.ini: all config data
-- models: contains pre-trained NN and classifier models (need to be downloaded)
+    - align folder: mtcnn detector code (from facenet)
+    - config.ini: all config data for application
+    - logging.conf: logging configuration
+    - startserver.py is the main
+- models: contains pre-trained models for CNN and classifier models (need to be downloaded. links below.)
 - test: contains unit test for components and visual debugging testcases for whole application
 - testing_data: contains videos/images for testing
 - training_data: contains labeled faces for training classifier
@@ -44,6 +49,8 @@ Performance with 640x480 videos (mjpg) on the RPi3 is 3 FPS if no faces are pres
 - Configuration: all config settings need to be done in config.ini. (use config_template.ini and rename)
 - Download pre-trained models for detector, face recognition (see below)
 - Train classifier on your target platform (due to cross-platform pickle issues)
+- configure model names in config.ini
+- configure uwsgi_start.ini
 - run tests first
 
 ### Production (uWSGI Server)
@@ -62,7 +69,7 @@ The Face Recognition Pipeline performs the following 4 steps with the listed fra
 3. Face Encoding (creating 128D encoding of face): dlib CNN face encoder [Dlib] (http://dlib.net/cnn_face_detector.py.html)
 4. Face classification: knn classifier from sklearn
 
-For image handling (reading, writing, transforming, extracing and showing) opencv is used.
+For image handling (reading, writing, transforming, extracing and showing) openCV is used.
 
 ## Training & Models
 - The face recognition pipeline uses Neural Networks for the first 3 steps. If you do not want to train the networks your own, you need to download pretrained models for each of the pipeline steps. Models need to be placed in model_path folder.
