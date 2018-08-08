@@ -2,6 +2,12 @@
 A simple face recognition system that can be used with any streaming camera and works with OpenHAB via REST communication.
 - Runs a small flask based http server that gets video streams from IP cameras on network and stores in a queue.
 - Multiprocessed worker application process the video frames and run a face recognition procedure on each of the frames in pipeline
+- Pipeline (see below): 
+- - Image Handling w/ OpenCV
+- - Face Detection w/ MTCNN Tensorflow Implementation
+- - Aligning/Cropping using dlib 
+- - embedding with dlib CNN 
+- - classification with KNN 
 - Once known faces are identified OpenHAB is notified via REST Interface call (requires REST API binding in OH)
 - If only unknown faces are identified OpenHAB is notified via REST Interface call
 
@@ -19,6 +25,9 @@ Configuration is pretty self-explanatory in confi.ini
 
 Image/Video Handling is done with openCV, so any streaming IP camera or file system videos should work (not tested)
 Performance with 640x480 videos (mjpg) on the RPi3 is 3 FPS if no faces are present, 0.7 FPS with one face, 0.4 FPS with 2 faces.
+
+![Setup Pis](doc/images/setup.png?raw=true)
+
 
 ### Folder Structure
 - sh_face_rec: contains all the code
