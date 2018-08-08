@@ -44,7 +44,7 @@ Performance with 640x480 videos (mjpg) on the RPi3:
 - training_data: contains labeled faces for training classifier
 - openHAB: example code for openHAB integration
 
-## Startup and API
+## Startup
 ### Preparation
 - Configuration: all config settings need to be done in config.ini. (use config_template.ini and rename)
 - Download pre-trained models for detector, face recognition (see below)
@@ -99,3 +99,27 @@ Execution: `python -m unittest test.test_classifier``
 - visualizes bounding boxes and detected names
 - can write to file
 `python3 -m unittest test.test_classifier`
+
+# API Examples
+The flask server API takes simple REST calls
+I use Postman to debug the API and the application.
+API calls in openHAB via restcall.
+
+## Examples
+New Streaming Job from CAM_URL for 10s on server SERVER_URL:PORT
+`curl -i -H "Content-Type: application/json" -X POST -d {'"URL":"CAM_URL", "Time": "10"}' SERVER_URL:SERVER_PORT/detectJSON`
+
+List Statistics 
+`curl -i -H SERVER_URL:SERVER_PORT/getStats`
+
+Get i Known Person
+`curl -i -H SERVER_URL:SERVER_PORT/getKnown/<int:index>`
+
+Get i Known Face
+`curl -i -H SERVER_URL:SERVER_PORT/getKnownFace/<int:index>`
+
+Get i Unknown Face
+`curl -i -H SERVER_URL:SERVER_PORT/getUnknownFace/<int:index>`
+
+Get last complete Frame
+`curl -i -H SERVER_URL:SERVER_PORT/getLastFrame`
