@@ -8,6 +8,8 @@ A simple face recognition system that can be used with any streaming camera and 
 Check the Wiki for detailed description of possible Face Detection/Recognition Frameworks incl. evaluation.
 [Wiki](https://github.com/kaschmo/sh_face_rec/wiki/Framework-comparison)
 
+Test
+
 ## Setup and Performance
 The application is written to work on a Raspberry Pi3.
 Python3 is recommended.
