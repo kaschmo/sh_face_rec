@@ -88,8 +88,6 @@ class VideoPipeline:
             #this init calls takes long time on Rpi: 7-12s
         self.logger.info("CV2 Opened: %d, CV2 Buffer size: %d",	videoCapture.isOpened(), videoCapture.get(cv2.CAP_PROP_BUFFERSIZE))
 
-        #videoCapture.set(cv2.CAP_PROP_BUFFERSIZE,0)
-        #videoCapture.open("http://admin:WlunW2013@192.168.1.32/video.cgi?.mjpg", cv2.CAP_FFMPEG)
         #workaround that streaming will happen even though when initialization of VideoCapture takes too long
         min_fps = cf.getint('MIN_FPS')
         min_frames = self.streamTime * min_fps
