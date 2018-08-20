@@ -30,10 +30,10 @@ Once I have all boundary boxes around the faces in the frame I use dlibs pose pr
 Implementation: Face Alignment and Landmark Extraction: dlib (pose_predictor 5point)
 
 ### Face Embedding
-This step creates a 128bit representation (embeddings) of every face that can then be used by a classifier to determine if we have a match or not. I went for the ![FaceNet](https://arxiv.org/abs/1503.03832) approach of using a pretrained Neural Network to create these face embeddings. 
+This step creates a 128bit representation (embeddings) of every face that can then be used by a classifier to determine if we have a match or not. I went for the [FaceNet](https://arxiv.org/abs/1503.03832) approach of using a pretrained Neural Network to create these face embeddings. 
 See the [Wiki](https://github.com/kaschmo/sh_face_rec/wiki/Framework-comparison) for the frameworks that I evaluated.
 I decided to use dlibs ResNet network to create 128bit vectors of the faces.
-Implementation: dlib CNN face encoder [Dlib] (http://dlib.net/cnn_face_detector.py.html). Comes with pretrained network on 3Mio face images from VGG and facescrub dataset.
+Implementation: dlib CNN face encoder [Dlib](http://dlib.net/cnn_face_detector.py.html). Comes with pretrained network on 3Mio face images from VGG and facescrub dataset.
 
 ### Face Classification
 With the 128bit embeddings I can train a classifier to detect known faces. In this pipeline step every new detected face embedding is fed into the classifier to determine if we have a known face (threshold comparison) or not.
