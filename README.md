@@ -2,24 +2,46 @@
 A simple face recognition system that can be used with any streaming camera and works with OpenHAB via REST communication. Runs on a Raspberry Pi.
 - Runs a small flask based http server that gets video streams from IP cameras on network and stores frames in a queue.
 - Multiprocessing worker application process the video frames and run a face recognition procedure on each of the frames in pipeline
-- Pipeline (see below): 
+- Pipeline (details see below): 
     - Image Handling w/ OpenCV
     - Face Detection w/ MTCNN Tensorflow Implementation
     - Aligning/Cropping using dlib 
-    - embedding with dlib CNN 
-    - classification with KNN 
+    - Face Embedding with dlib CNN 
+    - Classification with scikit KNN 
 - Once known faces are identified OpenHAB is notified via REST Interface call (requires REST API binding in OH)
 - If only unknown faces are identified OpenHAB is notified via REST Interface call
 
 Check the Wiki for detailed description of possible Face Detection/Recognition Frameworks incl. evaluation.
 [Wiki](https://github.com/kaschmo/sh_face_rec/wiki/Framework-comparison)
 
+## Face Processing Pipeline
 ![Processing Pipeline](doc/images/pipeline.png?raw=true)
+This pipeline is heavily inspired by the [OpenFace Pipeline](https://github.com/cmusatyalab/openface).
+See further down for information on training the neural networks of each pipeline step.
+For basic image handling (reading/streaming, writing, transforming, extracing and showing) openCV is used.
 
+### Face Detection
+As a first step we need to detect any shapes in the video frames that look like faces. Luckily there are many frameworks available which can do that. The challenge is to find “good enough” performance for my usecase (640x480 blurry and dark camera feed) and balance with resource requirements = processing FPS (frames per second). See The [Wiki](https://github.com/kaschmo/sh_face_rec/wiki/Framework-comparison) for the framework evaluation. I went for an MTCNN implemetation of a face detector.
+Implementation: davidsandberg's implementation of MTCNN for face detection [Github](https://github.com/davidsandberg/facenet/tree/master/src/align)
+
+
+### Face Alignment and Crop
+Once I have all boundary boxes around the faces in the frame I use dlibs pose predictor to align all the faces and crop them to a standard format of 64x64 pixels.
+Implementation: Face Alignment and Landmark Extraction: dlib (pose_predictor 5point)
+
+### Face Embedding
+This step creates a 128bit representation (embeddings) of every face that can then be used by a classifier to determine if we have a match or not. I went for the ![FaceNet](https://arxiv.org/abs/1503.03832) approach of using a pretrained Neural Network to create these face embeddings. 
+See the [Wiki](https://github.com/kaschmo/sh_face_rec/wiki/Framework-comparison) for the frameworks that I evaluated.
+I decided to use dlibs ResNet network to create 128bit vectors of the faces.
+Implementation: dlib CNN face encoder [Dlib] (http://dlib.net/cnn_face_detector.py.html). Comes with pretrained network on 3Mio face images from VGG and facescrub dataset.
+
+### Face Classification
+With the 128bit embeddings I can train a classifier to detect known faces. In this pipeline step every new detected face embedding is fed into the classifier to determine if we have a known face (threshold comparison) or not.
+Implementation: knn classifier from sklearn
 
 ## Setup and Performance
 The application is written to work on a Raspberry Pi3.
-Python3 is required.
+Python3 is required for multiprocessing. (Multithreading is terribly slow)
 I used Anaconda as environment manager. Use the env.yml file in the root directory to set up an working Anaconda environment.
 Configuration is pretty self-explanatory in confi.ini
 
@@ -32,7 +54,7 @@ Performance with 640x480 videos (mjpg) on the RPi3:
 ![Setup Pis](doc/images/setup.png?raw=true)
 
 
-### Folder Structure
+### Repository Folder Structure
 - sh_face_rec: contains all the code
     - align folder: mtcnn detector code (from facenet)
     - config.ini: all config data for application
@@ -62,14 +84,6 @@ Performance with 640x480 videos (mjpg) on the RPi3:
 - The whole http API is listed in startserver.py
 - config-file for uwsgi server is uwsgi_start.ini. Other servers such as gunicorn, gevent do not work with multiprocessing. The attribute processes should be >2 since the application forks 2 additional processes to main.
 
-## Face Recognition Pipeline
-The Face Recognition Pipeline performs the following 4 steps with the listed frameworks/tools being used
-1. Face Detection: davidsandberg's implementation of MTCNN for face detection [Github](https://github.com/davidsandberg/facenet/tree/master/src/align)
-2. Face Alignment and Landmark Extraction: dlib (pose_predictor 5point)
-3. Face Encoding (creating 128D encoding of face): dlib CNN face encoder [Dlib] (http://dlib.net/cnn_face_detector.py.html)
-4. Face classification: knn classifier from sklearn
-
-For image handling (reading, writing, transforming, extracing and showing) openCV is used.
 
 ## Training & Models
 - The face recognition pipeline uses Neural Networks for the first 3 steps. If you do not want to train the networks your own, you need to download pretrained models for each of the pipeline steps. Models need to be placed in model_path folder.
