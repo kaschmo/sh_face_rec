@@ -1,5 +1,6 @@
 # sh_face_rec - Smart Home Face Recognition
 A simple face recognition system that can be used with any streaming camera and works with OpenHAB via REST communication. Runs on a Raspberry Pi.
+![Animation](doc/images/animated_face_rec.gif?raw=true)
 - Runs a small flask based http server that gets video streams from IP cameras on network and stores frames in a queue.
 - Multiprocessing worker application process the video frames and run a face recognition procedure on each of the frames in pipeline
 - Pipeline (details see below): 
